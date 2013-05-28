@@ -2,28 +2,22 @@ var i2c = require('i2c');
 var async = require('async');
 var address = 0x53;
 var wire;
-var classADXL345 = {};
-
-/**
- * global Variables contain
- *
- * SAMPLECOUNT = 400;
- * accelScaleFactor = [0.0,0.0,0.0];
- * runTimeAccelBias = [0, 0, 0];
- * accelOneG = 0.0;
- * meterPerSecSec = [0.0,0.0,0.0];
- * accelSample = [0,0,0];
- * accelSampleCount = 0;
- */
-var globVar;
 
 /**
  *
  * @param {Object} vars
  * @param {Object} callback
  */
-classADXL345.init = function(vars, callback) {
-	globVar = vars;
+
+function ADXL345(callback)
+{
+	this.SAMPLECOUNT = 400;
+ 	this.accelScaleFactor = [0.0,0.0,0.0];
+	this.runTimeAccelBias = [0, 0, 0];
+	this.accelOneG = 0.0;
+	this.meterPerSecSec = [0.0,0.0,0.0];
+	this.accelSample = [0,0,0];
+	this.accelSampleCount = 0;
 	//init stuff here
 	wire = new i2c(address, {
 		device : '/dev/i2c-1'
@@ -52,14 +46,13 @@ classADXL345.init = function(vars, callback) {
 			callback(err);
 		}
 	});
-};
-
-classADXL345.measureAccel = function(callback) {
+}
+ADXL345.prototype.measureAccel = function(callback) {
 
 	wire.readBytes(0x32, 6, function(err, res) {
 		if (!err) {
 			for (var axis = global.XAXIS; axis <= global.ZAXIS; axis++) {
-				globVar.meterPerSecSec[axis] = res.readInt16LE(axis*2) * globVar.accelScaleFactor[axis] + globVar.runTimeAccelBias[axis];
+				this.meterPerSecSec[axis] = res.readInt16LE(axis*2) * this.accelScaleFactor[axis] + this.runTimeAccelBias[axis];
 			}
 			callback(null);
 		} else {
@@ -69,14 +62,14 @@ classADXL345.measureAccel = function(callback) {
 
 }
 
-classADXL345.measureAccelSum = function(callback) {
+ADXL345.prototype.measureAccelSum = function(callback) {
 	//get values from sensor here
 	wire.readBytes(0x32, 6, function(err, res) {
 		if (!err) {
 			for (var axis = global.XAXIS; axis <= global.ZAXIS; axis++) {
-				globVar.accelSample[axis] += res.readInt16LE(axis*2)
+				this.accelSample[axis] += res.readInt16LE(axis*2)
 			}
-			globVar.accelSampleCount++;
+			this.accelSampleCount++;
 			callback(null);
 		} else {
 			callback(err);
@@ -85,32 +78,32 @@ classADXL345.measureAccelSum = function(callback) {
 
 }
 
-classADXL345.evaluateMetersPerSec = function(callback) {
+ADXL345.prototype.evaluateMetersPerSec = function(callback) {
 	for (var axis = global.XAXIS; axis <= global.ZAXIS; axis++) {
-		globVar.meterPerSecSec[axis] = (globVar.accelSample[axis] / globVar.accelSampleCount) * globVar.accelScaleFactor[axis] + globVar.runTimeAccelBias[axis];
-		globVar.accelSample[axis] = 0;
+		this.meterPerSecSec[axis] = (this.accelSample[axis] / this.accelSampleCount) * this.accelScaleFactor[axis] + this.runTimeAccelBias[axis];
+		this.accelSample[axis] = 0;
 	}
-	globVar.accelSampleCount = 0;
+	this.accelSampleCount = 0;
 }
 
-classADXL345.computeAccelBias = function(callback) {
+ADXL345.prototype.computeAccelBias = function(callback) {
 	function getSamples() {
-		if (globVar.accelSampleCount < globVar.SAMPLECOUNT) {
-			classADXL345.measureAccelSum(function() {
+		if (this.accelSampleCount < this.SAMPLECOUNT) {
+			this.measureAccelSum(function() {
 				setTimeout(getSamples, 2.5);
 			});
 		} else {
 			for (var axis = 0; axis < 3; axis++) {
-				globVar.meterPerSecSec[axis] = (globVar.accelSample[axis] / globVar.SAMPLECOUNT) * globVar.accelScaleFactor[axis];
-				globVar.accelSample[axis] = 0;
+				this.meterPerSecSec[axis] = (this.accelSample[axis] / this.SAMPLECOUNT) * this.accelScaleFactor[axis];
+				this.accelSample[axis] = 0;
 			}
-			globVar.accelSampleCount = 0;
+			this.accelSampleCount = 0;
 
-			globVar.runTimeAccelBias[XAXIS] = -globVar.meterPerSecSec[XAXIS];
-			globVar.runTimeAccelBias[YAXIS] = -globVar.meterPerSecSec[YAXIS];
-			globVar.runTimeAccelBias[ZAXIS] = -9.8065 - globVar.meterPerSecSec[ZAXIS];
+			this.runTimeAccelBias[XAXIS] = -this.meterPerSecSec[XAXIS];
+			this.runTimeAccelBias[YAXIS] = -this.meterPerSecSec[YAXIS];
+			this.runTimeAccelBias[ZAXIS] = -9.8065 - this.meterPerSecSec[ZAXIS];
 
-			globVar.accelOneG = Math.abs(globVar.meterPerSecSec[ZAXIS] + globVar.runTimeAccelBias[ZAXIS]);
+			this.accelOneG = Math.abs(this.meterPerSecSec[ZAXIS] + this.runTimeAccelBias[ZAXIS]);
 			callback();
 		}
 	}
@@ -118,4 +111,4 @@ classADXL345.computeAccelBias = function(callback) {
 	getSamples();
 }
 
-module.exports = classADXL345;
+module.exports = ADXL345;

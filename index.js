@@ -1,7 +1,6 @@
 var i2c = require('i2c');
 var async = require('async');
 var address = 0x53;
-var wire;
 
 /**
  *
@@ -19,22 +18,25 @@ function ADXL345(callback)
 	this.accelSample = [0,0,0];
 	this.accelSampleCount = 0;
 	//init stuff here
-	wire = new i2c(address, {
+	this.wire = new i2c(address, {
 		device : '/dev/i2c-1'
 	});
+	
+	var self = this;
+	
 	async.waterfall([
 	function(cb) {
-		wire.writeBytes(0x2D, [1 << 3], function(err) {
+		self.wire.writeBytes(0x2D, [1 << 3], function(err) {
 			cb(err);
 		});
 	},
 	function(cb) {
-		wire.writeBytes(0x31, [0x09], function(err) {
+		self.wire.writeBytes(0x31, [0x09], function(err) {
 			cb(err);
 		});
 	},
 	function(cb) {
-		wire.writeBytes(0x2C, [8 + 2 + 1], function(err) {
+		self.wire.writeBytes(0x2C, [8 + 2 + 1], function(err) {
 			cb(err);
 		});
 	}], function(err) {
@@ -49,10 +51,12 @@ function ADXL345(callback)
 }
 ADXL345.prototype.measureAccel = function(callback) {
 
-	wire.readBytes(0x32, 6, function(err, res) {
+	var self = this;
+
+	this.wire.readBytes(0x32, 6, function(err, res) {
 		if (!err) {
-			for (var axis = global.XAXIS; axis <= global.ZAXIS; axis++) {
-				this.meterPerSecSec[axis] = res.readInt16LE(axis*2) * this.accelScaleFactor[axis] + this.runTimeAccelBias[axis];
+			for (var axis = XAXIS; axis <= ZAXIS; axis++) {
+				self.meterPerSecSec[axis] = res.readInt16LE(axis*2) * self.accelScaleFactor[axis] + self.runTimeAccelBias[axis];
 			}
 			callback(null);
 		} else {
@@ -64,12 +68,13 @@ ADXL345.prototype.measureAccel = function(callback) {
 
 ADXL345.prototype.measureAccelSum = function(callback) {
 	//get values from sensor here
-	wire.readBytes(0x32, 6, function(err, res) {
+	var self = this;
+	this.wire.readBytes(0x32, 6, function(err, res) {
 		if (!err) {
-			for (var axis = global.XAXIS; axis <= global.ZAXIS; axis++) {
-				this.accelSample[axis] += res.readInt16LE(axis*2)
+			for (var axis = XAXIS; axis <= ZAXIS; axis++) {
+				self.accelSample[axis] += res.readInt16LE(axis*2)
 			}
-			this.accelSampleCount++;
+			self.accelSampleCount++;
 			callback(null);
 		} else {
 			callback(err);
@@ -79,31 +84,32 @@ ADXL345.prototype.measureAccelSum = function(callback) {
 }
 
 ADXL345.prototype.evaluateMetersPerSec = function(callback) {
-	for (var axis = global.XAXIS; axis <= global.ZAXIS; axis++) {
-		this.meterPerSecSec[axis] = (this.accelSample[axis] / this.accelSampleCount) * this.accelScaleFactor[axis] + this.runTimeAccelBias[axis];
-		this.accelSample[axis] = 0;
+	for (var axis = XAXIS; axis <= ZAXIS; axis++) {
+		self.meterPerSecSec[axis] = (self.accelSample[axis] / self.accelSampleCount) * self.accelScaleFactor[axis] + self.runTimeAccelBias[axis];
+		self.accelSample[axis] = 0;
 	}
 	this.accelSampleCount = 0;
 }
 
 ADXL345.prototype.computeAccelBias = function(callback) {
+	var self = this;
 	function getSamples() {
-		if (this.accelSampleCount < this.SAMPLECOUNT) {
-			this.measureAccelSum(function() {
+		if (self.accelSampleCount < self.SAMPLECOUNT) {
+			self.measureAccelSum(function() {
 				setTimeout(getSamples, 2.5);
 			});
 		} else {
 			for (var axis = 0; axis < 3; axis++) {
-				this.meterPerSecSec[axis] = (this.accelSample[axis] / this.SAMPLECOUNT) * this.accelScaleFactor[axis];
-				this.accelSample[axis] = 0;
+				self.meterPerSecSec[axis] = (self.accelSample[axis] / self.SAMPLECOUNT) * self.accelScaleFactor[axis];
+				self.accelSample[axis] = 0;
 			}
-			this.accelSampleCount = 0;
+			self.accelSampleCount = 0;
 
-			this.runTimeAccelBias[XAXIS] = -this.meterPerSecSec[XAXIS];
-			this.runTimeAccelBias[YAXIS] = -this.meterPerSecSec[YAXIS];
-			this.runTimeAccelBias[ZAXIS] = -9.8065 - this.meterPerSecSec[ZAXIS];
+			self.runTimeAccelBias[XAXIS] = -self.meterPerSecSec[XAXIS];
+			self.runTimeAccelBias[YAXIS] = -self.meterPerSecSec[YAXIS];
+			self.runTimeAccelBias[ZAXIS] = -9.8065 - self.meterPerSecSec[ZAXIS];
 
-			this.accelOneG = Math.abs(this.meterPerSecSec[ZAXIS] + this.runTimeAccelBias[ZAXIS]);
+			self.accelOneG = Math.abs(self.meterPerSecSec[ZAXIS] + self.runTimeAccelBias[ZAXIS]);
 			callback();
 		}
 	}

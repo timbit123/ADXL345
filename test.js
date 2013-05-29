@@ -15,26 +15,29 @@ var globalvar = {
 }
 
 var accel = new ADXL345(function(err) {
-	accel.accelScaleFactor[global.XAXIS] = 0.0371299982;
-	accel.accelScaleFactor[global.YAXIS] = -0.0374319982;
-	accel.accelScaleFactor[global.ZAXIS] = -0.0385979986;
+	accel.accelScaleFactor[XAXIS] = 0.0371299982;
+	accel.accelScaleFactor[YAXIS] = -0.0374319982;
+	accel.accelScaleFactor[ZAXIS] = -0.0385979986;
 	if (!err) {
-		adxl345.computeAccelBias(function() {
-			if (!err) {
-				setInterval(function() {
-					adxl345.measureAccel(function(err) {
-						if (!err) {
-							console.log("Roll: " + accel.meterPerSecSec[global.XAXIS] + " Pitch : " + accel.meterPerSecSec[global.YAXIS] + " Yaw : " + accel.meterPerSecSec[global.ZAXIS]);
-						} else {
-							console.log(err);
-						}
-					});
-				}, 10);
-			} else {
-				console.log(err);
-			}
-		});
+		computeAccelBias();
 	} else {
 		console.log(err);
 	}
 })
+function computeAccelBias() {
+	accel.computeAccelBias(function() {
+		measureAccel();
+	});
+}
+
+function measureAccel() {
+	setInterval(function() {
+		accel.measureAccel(function(err) {
+			if (!err) {
+				console.log("Roll: " + accel.meterPerSecSec[global.XAXIS] + " Pitch : " + accel.meterPerSecSec[global.YAXIS] + " Yaw : " + accel.meterPerSecSec[global.ZAXIS]);
+			} else {
+				console.log(err);
+			}
+		});
+	}, 10);
+}

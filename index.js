@@ -83,7 +83,7 @@ ADXL345.prototype.measureAccelSum = function(callback) {
 
 }
 
-ADXL345.prototype.evaluateMetersPerSec = function(callback) {
+ADXL345.prototype.evaluateMetersPerSec = function() {
 	for (var axis = XAXIS; axis <= ZAXIS; axis++) {
 		self.meterPerSecSec[axis] = (self.accelSample[axis] / self.accelSampleCount) * self.accelScaleFactor[axis] + self.runTimeAccelBias[axis];
 		self.accelSample[axis] = 0;
